@@ -1,3 +1,3 @@
-module github.com/dinhbaokhanh/ptit-gateway
+module github.com/dinhbaokhanh/Final-Project-API-Gateway
 
 go 1.25.0
