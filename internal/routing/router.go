@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dinhbaokhanh/ptit-gateway/internal/config"
-	"github.com/dinhbaokhanh/ptit-gateway/internal/proxy"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/config"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/proxy"
 )
 
 func NewRouter(cfg config.Config) (http.Handler, error) {

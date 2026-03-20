@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/dinhbaokhanh/ptit-gateway/internal/config"
-	"github.com/dinhbaokhanh/ptit-gateway/internal/middleware"
-	"github.com/dinhbaokhanh/ptit-gateway/internal/routing"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/config"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/middleware"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/routing"
 )
 
 type App struct {
