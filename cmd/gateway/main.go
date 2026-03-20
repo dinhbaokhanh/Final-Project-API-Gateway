@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/dinhbaokhanh/ptit-gateway/internal/app"
-	"github.com/dinhbaokhanh/ptit-gateway/internal/config"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/app"
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/config"
 )
 
 func main() {
