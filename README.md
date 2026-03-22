@@ -46,9 +46,37 @@ Dự án xây dựng nền tảng mạng xã hội. Repository này chứa mã n
 
 ---
 
-## 4. Kiến Trúc Kỹ Thuật Dành Cho Gateway
+## 4. Định Hướng Phát Triển API Gateway (Kiến trúc Configuration-Driven theo KrakenD)
 
-Dự án này sử dụng mô hình Microservices, và repo này cụ thể chứa phần **API Gateway** viết bằng Go.
+Thay vì lập trình cứng (hard-code) các logic định tuyến và xử lý ngay trong mã nguồn gốc, API Gateway của hệ thống sẽ được tái cấu trúc và phát triển dựa trên triết lý cốt lõi của **KrakenD** (Configuration-driven API Gateway). Hướng đi này giúp tách biệt hoàn toàn phần xử lý logic (Engine) khỏi phần khai báo dịch vụ (Declaration), đồng thời hỗ trợ mạnh mẽ các mẫu kiến trúc microservices nâng cao.
+
+Các tính năng cốt lõi sẽ tập trung xây dựng bao gồm:
+
+### 4.1. Khởi chạy và Định tuyến bằng File Cấu Hình (Configuration-Driven Routing)
+*   **Mô tả:** Thay vì code cứng (hard-code) các route như `"/api/users"` hay `"/api/orders"` vào trong bộ định tuyến (router) của Go, toàn bộ hệ thống sẽ sử dụng một file cấu hình duy nhất (ví dụ: `gateway.json` hoặc `gateway.yaml`).
+*   **Hoạt động:** Khi Gateway khởi động, nó sẽ nạp (parse) file cấu hình này lên memory, tự động tạo các dynamic routes (đường dẫn động) và cấu hình các downstream services (dịch vụ đích) tương ứng.
+*   **Lợi ích:** Dễ dàng thêm, sửa, xóa, hoặc quy hoạch lại API mapping mà không cần recompile mã nguồn.
+
+### 4.2. Kiến trúc Backend for Frontend (BFF) thông qua Cấu Hình
+*   **Mô tả:** Tạo ra các backend riêng biệt được may đo (tailor-made) cho từng loại frontend cụ thể (như Mobile App, Web App).
+*   **Hoạt động:** Thay vì viết thêm Service trung gian, Gateway đảm nhận vai trò BFF. Cấu hình các endpoint trả về các payload khác nhau cho cùng một tài nguyên tùy thuộc vào client.
+
+### 4.3. Cung cấp dữ liệu tập trung (Endpoint Aggregation / Data Fetching)
+*   **Mô tả:** Hệ thống hỗ trợ nhận 1 request từ Client và tự động phát tách (fan-out) ra nhiều request gọi tới các Microservices.
+*   **Hoạt động:** Gateway sử dụng Goroutines để gọi song song các service, trộn (merge) phản hồi lại thành một JSON object hợp nhất và trả về Client. Giảm độ trễ mạng và over-fetching.
+
+### 4.4. Quản lý Middleware (Interceptor) tự động
+*   **Mô tả:** Áp dụng hệ thống Middleware (Xác thực, CORS, Rate-Limiting, Logging) ở tầng Gateway.
+*   **Hoạt động:** Tắt/bật Middleware thông qua cấu hình `gateway.json` ở cấp độ Toàn cục (Global) hoặc Cục bộ (Endpoint-level).
+
+### 4.5. Kiến trúc Phi trạng thái (Stateless Architecture)
+*   **Mô tả:** API Gateway không kết nối trực tiếp với Database hay Session Cache.
+*   **Hoạt động:** Mọi thao tác ủy quyền được xác minh tính hợp lệ độc lập (verify JWT) hoặc forward về Auth Service, giúp Gateway dễ dàng scale.
+
+---
+
+## 5. Cấu Trúc Kỹ Thuật (Đang triển khai)
+Dự án được viết bằng **Go**, hiện đang có cấu trúc như sau (sẽ được tái cấu trúc dần để đáp ứng kiến trúc mới):
 
 ### Cấu Trúc Thư Mục
 ```text
