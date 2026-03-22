@@ -1,0 +1,69 @@
+{
+  "port": 8080,
+  "__comment": "Đây là VÍ DỤ cấu hình của PTIT Gateway. Nó đóng vai trò làm BFF định tuyến từ port 8080 đến các Microservices cấp dưới. CÓ THỂ THAY ĐỔI SAU",
+  "endpoints": [
+    {
+      "__comment_users": "=== NHÓM API QUẢN LÝ NGƯỜI DÙNG (USER SERVICE - PORT 8081) ===",
+      "endpoint": "/api/users/login",
+      "method": "POST",
+      "backend": [
+        {
+          "host": [
+            "http://localhost:8081"
+          ],
+          "url_pattern": "/api/users/login"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/users/{id}",
+      "method": "GET",
+      "backend": [
+        {
+          "host": [
+            "http://localhost:8081"
+          ],
+          "url_pattern": "/api/users/{id}"
+        }
+      ]
+    },
+    {
+      "__comment_posts": "=== NHÓM API BÀI VIẾT VÀ TÀI LIỆU (POST SERVICE - PORT 8082) ===",
+      "endpoint": "/api/posts",
+      "method": "GET",
+      "backend": [
+        {
+          "host": [
+            "http://localhost:8082"
+          ],
+          "url_pattern": "/api/posts"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/posts/new",
+      "method": "POST",
+      "backend": [
+        {
+          "host": [
+            "http://localhost:8082"
+          ],
+          "url_pattern": "/api/posts/new"
+        }
+      ]
+    },
+    {
+      "__comment_groups": "=== NHÓM API QUẢN LÝ NHÓM HỌC TẬP (GROUP SERVICE - PORT 8083) ===",
+      "endpoint": "/api/groups",
+      "method": "GET",
+      "backend": [
+        {
+          "host": [
+            "http://localhost:8083"
+          ],
+          "url_pattern": "/api/groups"
+        }
+      ]
+    }
+  ]
+}

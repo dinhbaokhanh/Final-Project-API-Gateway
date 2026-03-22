@@ -9,35 +9,43 @@ import (
 	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/proxy"
 )
 
-func NewRouter(cfg config.Config) (http.Handler, error) {
-	usersProxy, err := proxy.NewReverseProxy(cfg.UsersBackend)
-	if err != nil {
-		return nil, fmt.Errorf("invalid users backend URL: %w", err)
-	}
-
-	ordersProxy, err := proxy.NewReverseProxy(cfg.OrdersBackend)
-	if err != nil {
-		return nil, fmt.Errorf("invalid orders backend URL: %w", err)
-	}
-
+// NewRouter khởi tạo một HTTP Handler để xử lý định tuyến dựa trên file cấu hình
+func NewRouter(cfg *config.GatewayConfig) (http.Handler, error) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+
+	// Khai báo route kiểm tra Gateway
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	mux.Handle("/api/users/", stripPrefixThenProxy("/api/users", usersProxy))
-	mux.Handle("/api/orders/", stripPrefixThenProxy("/api/orders", ordersProxy))
+	// Duyệt qua tất cả các endpoint trong cấu hình để tạo route động
+	for _, endpoint := range cfg.Endpoints {
+		if len(endpoint.Backend) == 0 || len(endpoint.Backend[0].Host) == 0 {
+			continue 
+		}
+
+		targetURL := endpoint.Backend[0].Host[0]
+		
+		// Khởi tạo một bộ trung chuyển (Reverse Proxy) trỏ tới backend đích
+		reverseProxy, err := proxy.NewReverseProxy(targetURL)
+		if err != nil {
+			return nil, fmt.Errorf("URL backend không hợp lệ cho endpoint %s: %w", endpoint.Endpoint, err)
+		}
+
+		// Tận dụng tính năng routing tiên tiến của Go 1.22+: Khai báo rõ HTTP Method (Ví dụ "POST /api/v1/user/login")
+		pattern := endpoint.Endpoint
+		if endpoint.Method != "" && endpoint.Method != "ANY" {
+			pattern = fmt.Sprintf("%s %s", strings.ToUpper(endpoint.Method), endpoint.Endpoint)
+		}
+
+		// Đăng ký route vào bộ định tuyến
+		fmt.Printf("[Router] Đã đăng ký %-30s -> chuyển hướng sang %s\n", pattern, targetURL)
+		
+		// Go's ReverseProxy sẽ tự động giữ nguyên đường dẫn (r.URL.Path) và gắn nó vào đằng sau TargetURL.
+		// VD: Khách gọi POST /api/v1/chat/123 -> Sẽ forward đúng POST {targetURL}/api/v1/chat/123
+		mux.Handle(pattern, reverseProxy)
+	}
 
 	return mux, nil
-}
-
-func stripPrefixThenProxy(prefix string, target http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
-		if r.URL.Path == "" {
-			r.URL.Path = "/"
-		}
-		target.ServeHTTP(w, r)
-	})
 }
