@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/config"
 	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/middleware"
@@ -16,19 +18,13 @@ type App struct {
 
 // New khởi tạo Gateway từ file cấu hình JSON
 func New(cfg *config.GatewayConfig) (*App, error) {
-	// Tạo dynamic router từ cấu hình đã đọc
 	router, err := routing.NewRouter(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// Chuỗi middleware toàn cục — áp dụng cho mọi request theo thứ tự từ ngoài vào trong:
-	// RequestValidation (kiểm tra body/content-type)
-	//   -> AuditLogger (ghi log bảo mật)
-	//     -> Recoverer (chống crash)
-	//       -> RequestLogger (ghi log latency)
-	//         -> CORS
-	//           -> Router (định tuyến per-route)
+	// Chuỗi middleware toàn cục — thứ tự từ ngoài vào trong:
+	// RequestValidation -> AuditLogger -> Recoverer -> RequestLogger -> CORS -> Router
 	handler := middleware.Chain(
 		router,
 		middleware.CORS,
@@ -40,8 +36,11 @@ func New(cfg *config.GatewayConfig) (*App, error) {
 
 	return &App{
 		server: &http.Server{
-			Addr:    fmt.Sprintf(":%d", cfg.Port),
-			Handler: handler,
+			Addr:         fmt.Sprintf(":%d", cfg.Port),
+			Handler:      handler,
+			ReadTimeout:  15 * time.Second, // Tối đa 15s đọc toàn bộ request từ client
+			WriteTimeout: 20 * time.Second, // Tối đa 20s ghi response về client
+			IdleTimeout:  60 * time.Second, // Giữ kết nối keep-alive tối đa 60s
 		},
 	}, nil
 }
@@ -49,4 +48,10 @@ func New(cfg *config.GatewayConfig) (*App, error) {
 // Run bắt đầu lắng nghe và xử lý request
 func (a *App) Run() error {
 	return a.server.ListenAndServe()
+}
+
+// Shutdown dừng Gateway một cách nhẹ nhàng — cho phép các request hiện tại hoàn thành
+// trước khi ngắt kết nối, tránh mất dữ liệu khi deploy hoặc restart.
+func (a *App) Shutdown(ctx context.Context) error {
+	return a.server.Shutdown(ctx)
 }

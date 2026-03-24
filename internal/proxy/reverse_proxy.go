@@ -4,9 +4,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 )
 
-// NewReverseProxy tạo mới một Reverse Proxy trỏ tới một backend đích
+// Timeout tối đa chờ phản hồi từ backend — tránh goroutine bị block vô hạn khi backend treo
+const backendTimeout = 10 * time.Second
+
+// NewReverseProxy tạo reverse proxy đến backend đích với timeout cứng 10 giây
 func NewReverseProxy(target string) (http.Handler, error) {
 	targetURL, err := url.Parse(target)
 	if err != nil {
@@ -15,21 +19,24 @@ func NewReverseProxy(target string) (http.Handler, error) {
 
 	p := httputil.NewSingleHostReverseProxy(targetURL)
 
-	// Lấy Director gốc của SingleHostReverseProxy
+	// Gắn http.Client có timeout để tránh backend chậm/treo làm nghẽn Gateway
+	p.Transport = &http.Transport{
+		ResponseHeaderTimeout: backendTimeout, // Timeout chờ phản hồi header từ backend
+		MaxIdleConns:          100,            // Tối đa 100 kết nối idle trong pool
+		MaxIdleConnsPerHost:   10,             // Tối đa 10 idle connection per backend host
+		IdleConnTimeout:       90 * time.Second,
+	}
+
+	// Ghi đè Director để fix header Host — nếu không Go gửi "localhost:8080" thay vì host thật
 	originalDirector := p.Director
-	
-	// Thay thế bằng Director tùy chỉnh
 	p.Director = func(req *http.Request) {
-		// Chạy logic chuẩn (Set scheme, path...)
 		originalDirector(req)
-		
-		// QUAN TRỌNG: Ghi đè header "Host" của request bằng Host của server đích (VD: chatbox-server.onrender.com)
-		// Nếu không có dòng này, Go sẽ lấy Host gốc là localhost:8080 gửi đi
 		req.Host = targetURL.Host
 	}
 
+	// Trả lỗi 502 thay vì để lộ thông báo lỗi kỹ thuật ra ngoài
 	p.ErrorHandler = func(w http.ResponseWriter, r *http.Request, proxyErr error) {
-		http.Error(w, "Lỗi từ Backend: Dịch vụ hiện không khả dụng", http.StatusBadGateway)
+		http.Error(w, "Dịch vụ backend hiện không khả dụng", http.StatusBadGateway)
 	}
 
 	return p, nil
