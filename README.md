@@ -1,79 +1,140 @@
 # PTIT Gateway - Nền Tảng Mạng Xã Hội Học Tập PTIT
 
-Dự án xây dựng nền tảng mạng xã hội. Repository này chứa mã nguồn phần **API Gateway** cho hệ thống microservices.
-
-## 1. Mục Tiêu Dự Án
-
-*   **Mục đích:** Viết một API Gateway cho hệ thống microservices nhằm mục đích học tập và rèn luyện kỹ năng cũng như sử dụng cho đồ án môn học.
+Repository này chứa mã nguồn phần **API Gateway** cho hệ thống microservices của nền tảng mạng xã hội học tập PTIT.
 
 ---
 
-## 2. Tính Năng & Chức Năng Cốt Lõi
+## 1. Mục Tiêu
 
-*   **Post & Nội dung:** Quản lý bài viết đa dạng trạng thái, Code Editor + Execution Sandbox (review diff), bộ lọc nội dung ẩn danh (Toxic detection).
-*   **Quản lý Nhóm/Cộng đồng:** Task board, Lịch nhóm, chia sẻ tiến độ thiết kế Figma/Code nội bộ.
-*   **Search & Đề xuất (AI tích hợp):** Graph matching algorithms (Neo4j), Semantic Search, Transformer xử lý tổng hợp tự động hỏi đáp.
-*   **Quản lý người dùng & file:** Xác thực, phân quyền Dashboard kiểm duyệt chuyên sâu, Cloud storage tài liệu học tập cá nhân và tập thể.
+API Gateway viết bằng **Go** theo triết lý **Configuration-Driven** (lấy cảm hứng từ KrakenD): toàn bộ định tuyến, xác thực, và bảo mật được khai báo trong file `gateway.json`, không hard-code trong mã nguồn.
 
 ---
 
-## 3. Định Hướng Phát Triển API Gateway (Kiến trúc Configuration-Driven theo KrakenD)
+## 2. Tính Năng Đã Triển Khai
 
-Thay vì lập trình cứng (hard-code) các logic định tuyến và xử lý ngay trong mã nguồn gốc, API Gateway của hệ thống sẽ được tái cấu trúc và phát triển dựa trên triết lý cốt lõi của **KrakenD** (Configuration-driven API Gateway). Hướng đi này giúp tách biệt hoàn toàn phần xử lý logic (Engine) khỏi phần khai báo dịch vụ (Declaration), đồng thời hỗ trợ mạnh mẽ các mẫu kiến trúc microservices nâng cao.
+### Định tuyến & Proxy
+- **Configuration-Driven Routing** — động route từ `gateway.json`, không cần recompile
+- **Reverse Proxy** — forward request đến backend với connection pooling và **timeout 10 giây** (tránh backend treo làm nghẽn Gateway)
 
-Các tính năng cốt lõi sẽ tập trung xây dựng bao gồm:
+### Bảo mật
+- **JWT Authentication** — chỉ chấp nhận HS256, validate `exp`/`iss`/`aud`/`jti`, chặn tấn công `alg:none`
+- **Redis Token Blacklist** — revoke token theo `jti` với TTL tự dọn; crash khi khởi động nếu Redis không sẵn sàng
+- **Header Sanitization** — xóa `X-User-ID`, `X-User-Role` do client tự gán; inject lại từ JWT claims
+- **Request Validation** — giới hạn body tối đa **1MB** (413), chỉ chấp nhận `application/json`, `multipart/form-data`, `application/x-www-form-urlencoded` (415)
 
-### 3.1. Khởi chạy và Định tuyến bằng File Cấu Hình (Configuration-Driven Routing)
-*   **Mô tả:** Thay vì code cứng (hard-code) các route như `"/api/users"` hay `"/api/orders"` vào trong bộ định tuyến (router) của Go, toàn bộ hệ thống sẽ sử dụng một file cấu hình duy nhất (ví dụ: `gateway.json` hoặc `gateway.yaml`).
-*   **Hoạt động:** Khi Gateway khởi động, nó sẽ nạp (parse) file cấu hình này lên memory, tự động tạo các dynamic routes (đường dẫn động) và cấu hình các downstream services (dịch vụ đích) tương ứng.
-*   **Lợi ích:** Dễ dàng thêm, sửa, xóa, hoặc quy hoạch lại API mapping mà không cần recompile mã nguồn.
-
-### 3.2. Kiến trúc Backend for Frontend (BFF) thông qua Cấu Hình
-*   **Mô tả:** Tạo ra các backend riêng biệt được may đo (tailor-made) cho từng loại frontend cụ thể (như Mobile App, Web App).
-*   **Hoạt động:** Thay vì viết thêm Service trung gian, Gateway đảm nhận vai trò BFF. Cấu hình các endpoint trả về các payload khác nhau cho cùng một tài nguyên tùy thuộc vào client.
-
-### 3.3. Cung cấp dữ liệu tập trung (Endpoint Aggregation / Data Fetching)
-*   **Mô tả:** Hệ thống hỗ trợ nhận 1 request từ Client và tự động phát tách (fan-out) ra nhiều request gọi tới các Microservices.
-*   **Hoạt động:** Gateway sử dụng Goroutines để gọi song song các service, trộn (merge) phản hồi lại thành một JSON object hợp nhất và trả về Client. Giảm độ trễ mạng và over-fetching.
-
-### 3.4. Quản lý Middleware (Interceptor) tự động
-*   **Mô tả:** Áp dụng hệ thống Middleware (Xác thực, CORS, Rate-Limiting, Logging) ở tầng Gateway.
-*   **Hoạt động:** Tắt/bật Middleware thông qua cấu hình `gateway.json` ở cấp độ Toàn cục (Global) hoặc Cục bộ (Endpoint-level).
-
-### 3.5. Kiến trúc Phi trạng thái (Stateless Architecture)
-*   **Mô tả:** API Gateway không kết nối trực tiếp với Database hay Session Cache.
-*   **Hoạt động:** Mọi thao tác ủy quyền được xác minh tính hợp lệ độc lập (verify JWT) hoặc forward về Auth Service, giúp Gateway dễ dàng scale.
+### Độ tin cậy & Vận hành
+- **Rate Limiting** — 20 req/giây per IP (Token Bucket), goroutine tự dọn dẹp IP cũ mỗi 5 phút (tránh memory leak)
+- **Graceful Shutdown** — bắt `SIGINT`/`SIGTERM`, drain request hiện tại trong 30 giây trước khi tắt
+- **Security Audit Logger** — ghi mọi sự kiện từ chối (401/403/429/413/415) dạng JSON ra stdout
+- **CORS** — cấu hình sẵn cho frontend cross-origin
+- **Recoverer** — bắt panic, trả 500 thay vì để Gateway sập
 
 ---
 
-## 4. Cấu Trúc Kỹ Thuật (Đang triển khai)
-Dự án được viết bằng **Go**, hiện đang có cấu trúc như sau (sẽ được tái cấu trúc dần để đáp ứng kiến trúc mới):
+## 3. Cấu Trúc Thư Mục
 
-### Cấu Trúc Thư Mục
 ```text
 ptit-gateway/
 |-- cmd/
 |   `-- gateway/
-|       `-- main.go          # Điểm khởi động
+|       `-- main.go              # Khởi động, graceful shutdown
 |-- internal/
-|   |-- app/                 # Khởi tạo và chạy HTTP server
-|   |-- config/              # Đọc biến môi trường
-|   |-- routing/             # Khai báo route proxy -> backend services
-|   |-- middleware/          # CORS, logger, recover, (sau này có rate-limit)
-|   `-- proxy/               # Reverse proxy implementation
+|   |-- app/                     # Khởi tạo HTTP server, chuỗi middleware toàn cục
+|   |-- config/                  # Đọc và parse gateway.json
+|   |-- routing/                 # Xây dựng route động + áp middleware per-route
+|   |-- middleware/
+|   |   |-- auth.go              # JWT Authentication
+|   |   |-- blacklist.go         # Redis Token Blacklist
+|   |   |-- ratelimit.go         # IP Rate Limiter (+ cleanup goroutine)
+|   |   |-- validation.go        # Request body/content-type validation
+|   |   |-- auditlog.go          # Security Audit Logger
+|   |   `-- middleware.go        # CORS, Logger, Recoverer, Chain helper
+|   `-- proxy/
+|       `-- reverse_proxy.go     # Reverse proxy với timeout và connection pool
+|-- gateway.json                 # File cấu hình routes
+|-- .env.example                 # Mẫu biến môi trường
 |-- go.mod
 `-- README.md
 ```
 
-### Các Biến Môi Trường (Mẫu)
-- `PORT`: Cổng gateway (mặc định `8080` hoặc có thể thay đổi)
-- `BACKEND_USERS`: URL service Users (Xác thực, Thông tin)
-- `BACKEND_POSTS`: URL service Q&A, Thảo luận
-- `BACKEND_GROUPS`: URL service Nhóm học tập, Kanban
-- `BACKEND_SEARCH`: URL service Semantic Search & Analytics
+---
 
-### Build & Run
+## 4. Cấu Hình Route (`gateway.json`)
+
+```json
+{
+  "port": 8080,
+  "jwt": {
+    "issuer": "ptit-backend",
+    "audience": "ptit-gateway"
+  },
+  "endpoints": [
+    {
+      "endpoint": "/api/users/login",
+      "method": "POST",
+      "backend": [{ "host": ["http://localhost:8081"], "url_pattern": "/api/users/login" }]
+    },
+    {
+      "endpoint": "/api/posts/new",
+      "method": "POST",
+      "auth_required": true,
+      "backend": [{ "host": ["http://localhost:8082"], "url_pattern": "/api/posts/new" }]
+    }
+  ]
+}
+```
+
+---
+
+## 5. Biến Môi Trường
+
+Tạo file `.env` từ mẫu `.env.example`:
+
+| Biến | Mô tả | Bắt buộc |
+|---|---|---|
+| `JWT_SECRET` | Secret key để verify JWT (phải khớp với backend) | ✅ |
+| `REDIS_URL` | Địa chỉ Redis (mặc định `localhost:6379`) | ❌ |
+
+> **Lưu ý:** Gateway sẽ **crash ngay khi khởi động** nếu thiếu `JWT_SECRET` hoặc không kết nối được Redis.
+
+---
+
+## 6. Chuỗi Middleware (Thứ tự xử lý)
+
+```
+Request đến
+    └─> RequestValidation   (kiểm tra body & Content-Type)
+        └─> AuditLogger     (ghi log bảo mật)
+            └─> Recoverer   (bắt panic)
+                └─> RequestLogger (ghi latency)
+                    └─> CORS
+                        └─> [Per-route]
+                            └─> RateLimit → Strip Headers → JWT Auth → Reverse Proxy
+```
+
+---
+
+## 7. Chạy Dự Án
+
 ```bash
-go mod tidy
+# Sao chép cấu hình môi trường
+cp .env.example .env
+# Chỉnh JWT_SECRET trong .env cho khớp với Node.js backend
+
+# Đảm bảo Redis đang chạy
+docker run -d -p 6379:6379 redis
+
+# Chạy Gateway
 go run ./cmd/gateway
+```
+
+**Kiểm tra Gateway hoạt động:**
+```bash
+curl http://localhost:8080/health
+# Trả về: ok
+```
+
+**Chạy toàn bộ unit test:**
+```bash
+go test ./internal/middleware/ -v
 ```
