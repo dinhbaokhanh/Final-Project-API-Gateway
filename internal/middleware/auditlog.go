@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// SecurityEvent là cấu trúc đại diện cho một sự kiện bảo mật cần được ghi lại.
 // Mỗi sự kiện đầu ra là một dòng JSON trên stdout để dễ dàng đọc bởi hệ thống logging (ELK, Loki, etc.)
 type SecurityEvent struct {
 	Timestamp  time.Time `json:"ts"`
@@ -56,7 +55,6 @@ func LogSecurityEvent(event SecurityEvent) {
 }
 
 // responseWriter là wrapper xung quanh http.ResponseWriter để ghi lại status code
-// vì Go không cung cấp cách đọc lại status code sau khi đã WriteHeader
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -120,17 +118,17 @@ func inferReason(statusCode int, isAuthSuccess bool) string {
 	}
 
 	switch statusCode {
-	case http.StatusTooManyRequests:
-		return ReasonRateLimited
-	case http.StatusUnauthorized:
-		return ReasonInvalidJWT
-	case http.StatusForbidden:
-		return ReasonForbidden
-	case http.StatusRequestEntityTooLarge:
-		return ReasonPayloadTooLarge
-	case http.StatusUnsupportedMediaType:
-		return ReasonUnsupportedMediaType
-	default:
-		return "unknown"
+		case http.StatusTooManyRequests:
+			return ReasonRateLimited
+		case http.StatusUnauthorized:
+			return ReasonInvalidJWT
+		case http.StatusForbidden:
+			return ReasonForbidden
+		case http.StatusRequestEntityTooLarge:
+			return ReasonPayloadTooLarge
+		case http.StatusUnsupportedMediaType:
+			return ReasonUnsupportedMediaType
+		default:
+			return "unknown"
 	}
 }
