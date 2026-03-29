@@ -5,10 +5,10 @@
     "issuer": "ptit-backend",
     "audience": "ptit-gateway"
   },
-  "__comment": "Đây là VÍ DỤ cấu hình của PTIT Gateway. Nó đóng vai trò làm BFF định tuyến từ port 8080 đến các Microservices cấp dưới. CÓ THỂ THAY ĐỔI SAU",
+  "__comment": "Đây là VÍ DỤ cấu hình Gateway. Nó đóng vai trò làm BFF định tuyến từ port 8080 đến các Microservices cấp dưới. CÓ THỂ THAY ĐỔI SAU",
   "endpoints": [
     {
-      "__comment_users": "=== NHÓM API QUẢN LÝ NGƯỜI DÙNG (USER SERVICE - PORT 8081) ===",
+      "__comment_users": "=== USER SERVICE - PORT 8081 ===",
       "endpoint": "/api/users/login",
       "method": "POST",
       "backend": [
@@ -34,7 +34,7 @@
       ]
     },
     {
-      "__comment_posts": "=== NHÓM API BÀI VIẾT VÀ TÀI LIỆU (POST SERVICE - PORT 8082) ===",
+      "__comment_posts": "=== POST SERVICE - PORT 8082 ===",
       "endpoint": "/api/posts",
       "method": "GET",
       "backend": [
@@ -61,7 +61,7 @@
       ]
     },
     {
-      "__comment_groups": "=== NHÓM API QUẢN LÝ NHÓM HỌC TẬP (GROUP SERVICE - PORT 8083) ===",
+      "__comment_groups": "=== GROUP SERVICE - PORT 8083 ===",
       "endpoint": "/api/groups",
       "method": "GET",
       "backend": [
