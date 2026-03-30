@@ -1,7 +1,6 @@
-# PTIT Gateway - Nền Tảng Mạng Xã Hội Học Tập PTIT
+# API Gateway
 
-Repository này chứa mã nguồn phần **API Gateway** cho hệ thống microservices của nền tảng mạng xã hội học tập PTIT.
-
+Repository này chứa mã nguồn phần **API Gateway** cho hệ thống microservices của đồ án tốt nghiệp - Nền tảng diễn đàn sinh viên.
 ---
 
 ## 1. Mục Tiêu
