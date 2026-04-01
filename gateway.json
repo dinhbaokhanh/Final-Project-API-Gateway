@@ -1,9 +1,15 @@
 {
   "port": 8080,
   "timeout_seconds": 15,
+  "max_requests_per_minute": 100,
   "jwt": {
     "issuer": "ptit-backend",
     "audience": "ptit-gateway"
+  },
+  "cors": {
+    "allowed_origins": ["http://localhost:3000"],
+    "allowed_methods": ["GET", "POST", "PUT", "DELETE"],
+    "allowed_headers": ["Content-Type", "Authorization"]
   },
   "__comment": "Đây là VÍ DỤ cấu hình Gateway. Nó đóng vai trò làm BFF định tuyến từ port 8080 đến các Microservices cấp dưới. CÓ THỂ THAY ĐỔI SAU",
   "endpoints": [
@@ -13,9 +19,7 @@
       "method": "POST",
       "backend": [
         {
-          "host": [
-            "http://localhost:8081"
-          ],
+          "host": ["http://localhost:8081"],
           "url_pattern": "/api/users/login"
         }
       ]
@@ -26,9 +30,7 @@
       "auth_required": true,
       "backend": [
         {
-          "host": [
-            "http://localhost:8081"
-          ],
+          "host": ["http://localhost:8081"],
           "url_pattern": "/api/users/{id}"
         }
       ]
@@ -40,9 +42,7 @@
       "cache_ttl_seconds": 60,
       "backend": [
         {
-          "host": [
-            "http://localhost:8082"
-          ],
+          "host": ["http://localhost:8082"],
           "url_pattern": "/api/posts"
         }
       ]
@@ -54,9 +54,7 @@
       "required_roles": ["admin", "teacher"],
       "backend": [
         {
-          "host": [
-            "http://localhost:8082"
-          ],
+          "host": ["http://localhost:8082"],
           "url_pattern": "/api/posts/new"
         }
       ]
@@ -65,11 +63,10 @@
       "__comment_groups": "=== GROUP SERVICE - PORT 8083 ===",
       "endpoint": "/api/groups",
       "method": "GET",
+      "auth_required": true,
       "backend": [
         {
-          "host": [
-            "http://localhost:8083"
-          ],
+          "host": ["http://localhost:8083"],
           "url_pattern": "/api/groups"
         }
       ]

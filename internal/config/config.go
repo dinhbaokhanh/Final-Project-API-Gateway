@@ -12,12 +12,21 @@ type JWTConfig struct {
 	Audience string `json:"audience"`
 }
 
+// CORSConfig chứa danh sách nguồn cho phép (Origins), Method và Header
+type CORSConfig struct {
+	AllowedOrigins []string `json:"allowed_origins"`
+	AllowedMethods []string `json:"allowed_methods"`
+	AllowedHeaders []string `json:"allowed_headers"`
+}
+
 // GatewayConfig là cấu trúc gốc chứa toàn bộ cài đặt của Gateway (đọc từ file JSON)
 type GatewayConfig struct {
-	Port          int              `json:"port"`
-	TimeoutSeconds int             `json:"timeout_seconds"`
-	JWT           JWTConfig        `json:"jwt"`
-	Endpoints     []EndpointConfig `json:"endpoints"`
+	Port                 int              `json:"port"`
+	TimeoutSeconds        int              `json:"timeout_seconds"`
+	MaxRequestsPerMinute int              `json:"max_requests_per_minute"`
+	JWT                  JWTConfig        `json:"jwt"`
+	CORS                 CORSConfig       `json:"cors"`
+	Endpoints            []EndpointConfig `json:"endpoints"`
 }
 
 // EndpointConfig định nghĩa một API Route mà Gateway sẽ mở ra để Frontend gọi

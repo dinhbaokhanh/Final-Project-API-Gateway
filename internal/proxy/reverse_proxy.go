@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,6 +18,12 @@ type RoundRobinProxy struct {
 	current uint32
 }
 
+// BackendTarget là một địa chỉ backend cụ thể kèm đường dẫn nội bộ cần rewrite.
+type BackendTarget struct {
+	Host       string
+	URLPattern string
+}
+
 func (rr *RoundRobinProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(rr.proxies) == 0 {
 		http.Error(w, "No backends available", http.StatusBadGateway)
@@ -27,8 +34,8 @@ func (rr *RoundRobinProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr.proxies[idx].ServeHTTP(w, r)
 }
 
-// NewLoadBalancedProxy tạo proxy phân tải đến danh sách nhiều server backend
-func NewLoadBalancedProxy(targets []string, timeoutSec int) (http.Handler, error) {
+// NewLoadBalancedProxy tạo proxy phân tải đến danh sách nhiều server backend.
+func NewLoadBalancedProxy(targets []BackendTarget, endpointPattern string, timeoutSec int) (http.Handler, error) {
 	if len(targets) == 0 {
 		return nil, fmt.Errorf("không có backend nào được cấp")
 	}
@@ -49,7 +56,7 @@ func NewLoadBalancedProxy(targets []string, timeoutSec int) (http.Handler, error
 	proxies := make([]*httputil.ReverseProxy, 0, len(targets))
 
 	for _, target := range targets {
-		targetURL, err := url.Parse(target)
+		targetURL, err := url.Parse(target.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -74,11 +81,18 @@ func NewLoadBalancedProxy(targets []string, timeoutSec int) (http.Handler, error
 			transport: transport,
 		}
 
-		// Ghi đè Director để sửa lỗi header Host
+		backendPattern := target.URLPattern
+		if backendPattern == "" {
+			backendPattern = endpointPattern
+		}
+
+		// Ghi đè Director để sửa Host header và rewrite path theo url_pattern.
 		originalDirector := p.Director
 		p.Director = func(req *http.Request) {
 			originalDirector(req)
 			req.Host = targetURL.Host
+			req.URL.Path = rewritePath(req.URL.Path, endpointPattern, backendPattern)
+			req.URL.RawPath = req.URL.EscapedPath()
 		}
 
 		p.ErrorHandler = func(w http.ResponseWriter, r *http.Request, proxyErr error) {
@@ -95,6 +109,51 @@ func NewLoadBalancedProxy(targets []string, timeoutSec int) (http.Handler, error
 
 	// Trả về Load Balancer cho nhiều server
 	return &RoundRobinProxy{proxies: proxies}, nil
+}
+
+func rewritePath(requestPath, endpointPattern, backendPattern string) string {
+	if backendPattern == "" || backendPattern == endpointPattern {
+		return requestPath
+	}
+
+	requestSegments := splitPath(requestPath)
+	endpointSegments := splitPath(endpointPattern)
+	if len(requestSegments) != len(endpointSegments) {
+		return backendPattern
+	}
+
+	params := make(map[string]string)
+	for i, ep := range endpointSegments {
+		rp := requestSegments[i]
+		if strings.HasPrefix(ep, "{") && strings.HasSuffix(ep, "}") {
+			name := strings.TrimSuffix(strings.TrimPrefix(ep, "{"), "}")
+			params[name] = rp
+			continue
+		}
+		if ep != rp {
+			return backendPattern
+		}
+	}
+
+	backendSegments := splitPath(backendPattern)
+	for i, seg := range backendSegments {
+		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
+			name := strings.TrimSuffix(strings.TrimPrefix(seg, "{"), "}")
+			if value, ok := params[name]; ok {
+				backendSegments[i] = value
+			}
+		}
+	}
+
+	return "/" + strings.Join(backendSegments, "/")
+}
+
+func splitPath(path string) []string {
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return []string{}
+	}
+	return strings.Split(trimmed, "/")
 }
 
 // breakerTransport bọc http.RoundTripper qua cơ chế Circuit Breaker

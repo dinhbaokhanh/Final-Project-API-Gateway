@@ -26,7 +26,7 @@ func New(cfg *config.GatewayConfig) (*App, error) {
 	// RequestValidation -> AuditLogger -> Recoverer -> RequestLogger -> CORS -> Router
 	handler := middleware.Chain(
 		router,
-		middleware.CORS,
+		middleware.CORSProvider(cfg.CORS),
 		middleware.RequestLogger,
 		middleware.Recoverer,
 		middleware.AuditLoggerMiddleware,

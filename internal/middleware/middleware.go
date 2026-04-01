@@ -3,9 +3,10 @@ package middleware
 import (
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/dinhbaokhanh/Final-Project-API-Gateway/internal/config"
 )
 
 // Middleware định nghĩa kiểu hàm bọc HTTP Handler
@@ -42,50 +43,55 @@ func Recoverer(next http.Handler) http.Handler {
 	})
 }
 
-// CORS thiết lập header theo Whitelist được cho phép từ `.env`
-func CORS(next http.Handler) http.Handler {
-	allowedOriginsStr := os.Getenv("CORS_ALLOWED_ORIGINS")
-	var allowedOrigins []string
-	if allowedOriginsStr != "" {
-		parts := strings.Split(allowedOriginsStr, ",")
-		for _, o := range parts {
-			allowedOrigins = append(allowedOrigins, strings.TrimSpace(o))
-		}
+// CORSProvider trả về middleware CORS sử dụng whitelist từ cấu hình JSON
+func CORSProvider(cfg config.CORSConfig) Middleware {
+	allowedOrigins := cfg.AllowedOrigins
+
+	allowedMethods := "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+	if len(cfg.AllowedMethods) > 0 {
+		allowedMethods = strings.Join(cfg.AllowedMethods, ",")
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		allowOrigin := ""
+	allowedHeaders := "Content-Type,Authorization"
+	if len(cfg.AllowedHeaders) > 0 {
+		allowedHeaders = strings.Join(cfg.AllowedHeaders, ",")
+	}
 
-		if len(allowedOrigins) == 0 {
-			allowOrigin = "*" // Fallback bảo vệ hệ thống không bị panic nếu chưa cấu hình
-		} else {
-			// Duyệt qua Whitelist để cấp quyền cho đúng domain gọi tới
-			for _, o := range allowedOrigins {
-				if o == "*" || o == origin {
-					allowOrigin = origin
-					break
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			allowOrigin := ""
+
+			if len(allowedOrigins) == 0 {
+				allowOrigin = "*" // Fallback bảo vệ hệ thống không bị panic nếu chưa cấu hình
+			} else {
+				// Duyệt qua Whitelist để cấp quyền cho đúng domain gọi tới
+				for _, o := range allowedOrigins {
+					if o == "*" || o == origin {
+						allowOrigin = origin
+						break
+					}
 				}
 			}
-		}
 
-		if allowOrigin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
-		
-		// Kích hoạt Credentials (Cookie-based auth) khi được chỉ định đích danh
-		if allowOrigin != "" && allowOrigin != "*" {
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-		}
+			if allowOrigin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+			}
+			w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
+			w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 
-		// Trình duyệt gửi OPTIONS để kiểm tra trước
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+			// Kích hoạt Credentials (Cookie-based auth) khi được chỉ định đích danh
+			if allowOrigin != "" && allowOrigin != "*" {
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			// Trình duyệt gửi OPTIONS để kiểm tra trước
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

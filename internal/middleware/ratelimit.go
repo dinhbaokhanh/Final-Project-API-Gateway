@@ -36,10 +36,19 @@ func cleanupVisitors() {
 }
 
 // Trả về rate limiter của một IP
-func getVisitor(ip string) *rate.Limiter {
+func getVisitor(ip string, maxReqPerMin int) *rate.Limiter {
+	if maxReqPerMin <= 0 {
+		maxReqPerMin = 100 // Fallback mặc định
+	}
+	rps := rate.Limit(float64(maxReqPerMin) / 60.0)
+	burst := maxReqPerMin / 5
+	if burst < 5 {
+		burst = 5
+	}
+
 	// Lấy hoặc khởi tạo Limiter mới
 	vInfo, loaded := visitors.LoadOrStore(ip, &visitor{
-		limiter:  rate.NewLimiter(rate.Limit(20), 20),
+		limiter:  rate.NewLimiter(rps, burst),
 		lastSeen: time.Now(),
 	})
 
@@ -51,19 +60,21 @@ func getVisitor(ip string) *rate.Limiter {
 	return v.limiter
 }
 
-// RateLimitMiddleware chặn request spam
-func RateLimitMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
-		}
+// RateLimitMiddlewareProvider định tuyến hàm middleware chặn request spam với giới hạn động
+func RateLimitMiddlewareProvider(maxReqPerMin int) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ip = r.RemoteAddr
+			}
 
-		if !getVisitor(ip).Allow() {
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-			return
-		}
+			if !getVisitor(ip, maxReqPerMin).Allow() {
+				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				return
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
