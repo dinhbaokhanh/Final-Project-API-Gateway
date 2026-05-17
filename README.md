@@ -5,7 +5,7 @@ Repository này chứa mã nguồn phần **API Gateway** cho hệ thống micro
 
 ## 1. Mục Tiêu
 
-API Gateway viết bằng **Go** theo triết lý **Configuration-Driven** (lấy cảm hứng từ KrakenD): toàn bộ định tuyến, xác thực, và bảo mật được khai báo trong file `gateway.json`, không hard-code trong mã nguồn.
+API Gateway viết bằng **Go** theo triết lý **Configuration-Driven**: toàn bộ định tuyến, xác thực, và bảo mật được khai báo trong file `gateway.json`, không hard-code trong mã nguồn.
 
 ---
 
@@ -73,12 +73,7 @@ ptit-gateway/
       "method": "POST",
       "backend": [{ "host": ["http://localhost:8081"], "url_pattern": "/api/users/login" }]
     },
-    {
-      "endpoint": "/api/posts/new",
-      "method": "POST",
-      "auth_required": true,
-      "backend": [{ "host": ["http://localhost:8082"], "url_pattern": "/api/posts/new" }]
-    }
+    ....
   ]
 }
 ```
