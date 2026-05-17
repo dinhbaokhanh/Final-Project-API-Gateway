@@ -5,7 +5,7 @@ Repository này chứa mã nguồn phần **API Gateway** cho hệ thống micro
 
 ## 1. Mục Tiêu
 
-API Gateway viết bằng **Go** theo triết lý **Configuration-Driven**: toàn bộ định tuyến, xác thực, và bảo mật được khai báo trong file `gateway.json`, không hard-code trong mã nguồn.
+API Gateway viết bằng **Go** theo triết lý **Configuration-Driven**: toàn bộ định tuyến, xác thực, và khai báo trong file `gateway.json`.
 
 ---
 
@@ -13,7 +13,7 @@ API Gateway viết bằng **Go** theo triết lý **Configuration-Driven**: toà
 
 ### Định tuyến & Proxy
 - **Configuration-Driven Routing** — động route từ `gateway.json`, không cần recompile
-- **Reverse Proxy** — forward request đến backend với connection pooling và **timeout 10 giây** (tránh backend treo làm nghẽn Gateway)
+- **Reverse Proxy** — forward request đến backend với connection pooling và **timeout 10 giây**
 
 ### Bảo mật
 - **JWT Authentication** — chỉ chấp nhận HS256, validate `exp`/`iss`/`aud`/`jti`, chặn tấn công `alg:none`
@@ -22,7 +22,7 @@ API Gateway viết bằng **Go** theo triết lý **Configuration-Driven**: toà
 - **Request Validation** — giới hạn body tối đa **1MB** (413), chỉ chấp nhận `application/json`, `multipart/form-data`, `application/x-www-form-urlencoded` (415)
 
 ### Độ tin cậy & Vận hành
-- **Rate Limiting** — 20 req/giây per IP (Token Bucket), goroutine tự dọn dẹp IP cũ mỗi 5 phút (tránh memory leak)
+- **Rate Limiting** — 20 req/giây per IP, goroutine tự dọn dẹp IP cũ mỗi 5 phút
 - **Graceful Shutdown** — bắt `SIGINT`/`SIGTERM`, drain request hiện tại trong 30 giây trước khi tắt
 - **Security Audit Logger** — ghi mọi sự kiện từ chối (401/403/429/413/415) dạng JSON ra stdout
 - **CORS** — cấu hình sẵn cho frontend cross-origin
